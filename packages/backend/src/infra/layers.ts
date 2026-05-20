@@ -7,7 +7,12 @@ import { IntakeServiceLive } from "../services/IntakeService"
 import { ReferenceIdServiceLive } from "./ReferenceIdService"
 import { TelemetryLive } from "./TelemetryLive"
 
-const CorsLive = HttpRouter.cors({ allowedOrigins: ["http://localhost:4321"] })
+const allowedOrigins = (process.env.FRONTEND_ORIGIN ?? "http://localhost:4321")
+  .split(",")
+  .map((s) => s.trim())
+  .filter((s) => s.length > 0)
+
+const CorsLive = HttpRouter.cors({ allowedOrigins })
 
 const AppLive = HttpApiBuilder.layer(AppApi).pipe(
   Layer.provide(IntakeHandlersLive),

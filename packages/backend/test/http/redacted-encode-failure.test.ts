@@ -42,12 +42,13 @@ describe("Schema.Redacted — encode-failure surfaces", () => {
       expect(exit._tag).toBe("Failure")
       if (exit._tag === "Failure") {
         const message = Cause.pretty(exit.cause)
-        // The message could be "Cannot encode Redacted" (RedactedFromValue's
-        // Getter.forbidden) or "Forbidden". Match either form.
+        // The forbidden encoder for Schema.RedactedFromValue emits one of two
+        // specific messages depending on whether a label was set. Pin to those
+        // exact tokens — broader assertions would happily accept unrelated
+        // encoder regressions.
         expect(
-          message.includes("Cannot encode Redacted") ||
-            message.includes("Forbidden") ||
-            message.toLowerCase().includes("encode"),
+          message.includes("Cannot encode Redacted with label") ||
+            message.includes("Cannot encode Redacted"),
         ).toBe(true)
       }
     }),

@@ -19,8 +19,13 @@ import { IntakeService, IntakeServiceLive } from "../../src/services/IntakeServi
 
 const TestLive = IntakeServiceLive.pipe(Layer.provide(ReferenceIdServiceLive))
 
-// `it.effect.prop` in @effect/vitest@4.0.0-beta.66 has a bug where schemas
-// passed via the record form are not converted; convert manually.
+// `it.effect.prop` in @effect/vitest@4.0.0-beta.66 has a bug: passing a
+// Schema via the record form (`{ input: IntakePayload }`) is not converted
+// into an arbitrary — the wrapper drops the schema and the test sees the
+// schema object as the input. Symptom: input.email is undefined inside the
+// generator. Convert manually until the upstream issue is fixed.
+//
+// TODO: remove this workaround when @effect/vitest > 4.0.0-beta.66
 const inputArb = Schema.toArbitrary(IntakePayload)
 
 layer(TestLive)("IntakeService", (it) => {

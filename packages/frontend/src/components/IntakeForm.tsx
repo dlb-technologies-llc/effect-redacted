@@ -52,20 +52,30 @@ export function IntakeForm() {
     Exit.match(exit, {
       onSuccess: (value) => setResult({ kind: "success", referenceId: value.referenceId }),
       onFailure: (cause) => {
-        // v4 Cause: typed errors live on Fail reasons. The Reason.error type
-        // for our union is IntakeValidationError | HttpApiDecodeError, so we
-        // narrow defensively rather than asserting structure.
+        // v4 Cause: typed errors live on Fail reasons. Narrow on
+        // _tag === "IntakeValidationError" — the only typed error this
+        // endpoint declares — so per-field UX fires reliably for the
+        // business error. Anything else (HttpApiDecodeError from the
+        // framework, transport errors, defects) falls through to the
+        // generic message.
         const failReason = cause.reasons.find(Cause.isFailReason)
         const error = failReason?.error
-        const message =
-          error && typeof error === "object" && "message" in error
-            ? String(error.message)
-            : "Something went wrong. Please try again."
-        const field =
-          error && typeof error === "object" && "field" in error && typeof error.field === "string"
-            ? error.field
-            : undefined
-        setResult({ kind: "error", message, field })
+        if (
+          error &&
+          typeof error === "object" &&
+          "_tag" in error &&
+          error._tag === "IntakeValidationError"
+        ) {
+          const message =
+            "message" in error && typeof error.message === "string"
+              ? error.message
+              : "Validation failed."
+          const field =
+            "field" in error && typeof error.field === "string" ? error.field : undefined
+          setResult({ kind: "error", message, field })
+        } else {
+          setResult({ kind: "error", message: "Something went wrong. Please try again." })
+        }
       },
     })
   }

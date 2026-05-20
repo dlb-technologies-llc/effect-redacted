@@ -1,7 +1,14 @@
-import { faker } from "@faker-js/faker"
 import { Schema, SchemaGetter } from "effect"
 
+/**
+ * Arbitraries use fast-check primitives directly (`fc.stringMatching`,
+ * `fc.emailAddress`) so they participate in fast-check's seeded RNG. The
+ * earlier `fc.constant(null).map(() => faker.X())` form bypassed the seed —
+ * shrink/replay didn't work.
+ */
+
 const NAME_PATTERN = /^[A-Za-z'’\- ]{1,80}$/
+const NAME_ARB_PATTERN = /^[A-Za-z]{1,20}$/ // narrower for arbitrary; still satisfies NAME_PATTERN
 
 export const FirstName = Schema.String.pipe(
   Schema.check(
@@ -10,7 +17,7 @@ export const FirstName = Schema.String.pipe(
     }),
   ),
 ).annotate({
-  toArbitrary: () => (fc) => fc.constant(null).map(() => faker.person.firstName()),
+  toArbitrary: () => (fc) => fc.stringMatching(NAME_ARB_PATTERN),
 })
 export type FirstName = typeof FirstName.Type
 
@@ -21,7 +28,7 @@ export const LastName = Schema.String.pipe(
     }),
   ),
 ).annotate({
-  toArbitrary: () => (fc) => fc.constant(null).map(() => faker.person.lastName()),
+  toArbitrary: () => (fc) => fc.stringMatching(NAME_ARB_PATTERN),
 })
 export type LastName = typeof LastName.Type
 
@@ -33,7 +40,7 @@ export const Email = Schema.String.pipe(
     }),
   ),
 ).annotate({
-  toArbitrary: () => (fc) => fc.constant(null).map(() => faker.internet.email().toLowerCase()),
+  toArbitrary: () => (fc) => fc.emailAddress(),
 })
 export type Email = typeof Email.Type
 
@@ -54,8 +61,7 @@ export const Phone = Schema.String.pipe(
     }),
   ),
 ).annotate({
-  toArbitrary: () => (fc) =>
-    fc.constant(null).map(() => faker.string.numeric({ length: 10, allowLeadingZeros: false })),
+  toArbitrary: () => (fc) => fc.stringMatching(PHONE_PATTERN),
 })
 export type Phone = typeof Phone.Type
 
