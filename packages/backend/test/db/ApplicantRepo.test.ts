@@ -34,12 +34,12 @@ import {
 } from "@effect-redacted/shared/domain/Applicant"
 import { Effect, Layer, Redacted, Schema } from "effect"
 import { SqlClient } from "effect/unstable/sql"
-import { ApplicantRepo, ApplicantRepoLive } from "../../src/db/ApplicantRepo"
+import { ApplicantRepo } from "../../src/db/ApplicantRepo"
 import { migrationsDir } from "../../src/infra/migrationsDir"
 import { FreshDbLayer } from "../setup/FreshDbLayer"
 import { resetPublicSchema } from "../setup/resetPublicSchema"
 
-const TestLive = ApplicantRepoLive.pipe(Layer.provideMerge(FreshDbLayer))
+const TestLive = ApplicantRepo.layer.pipe(Layer.provideMerge(FreshDbLayer))
 
 const inputArb = Schema.toArbitrary(
   Schema.Struct({

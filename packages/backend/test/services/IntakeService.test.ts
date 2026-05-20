@@ -26,10 +26,10 @@ import { expect, layer } from "@effect/vitest"
 import { ApplicantId } from "@effect-redacted/shared/domain/Applicant"
 import { IntakePayload } from "@effect-redacted/shared/http/payloads"
 import { Effect, Layer, Redacted, Schema } from "effect"
-import { IntakeService, IntakeServiceLive } from "../../src/services/IntakeService"
+import { IntakeService } from "../../src/services/IntakeService"
 import { ApplicantRepoStub } from "../setup/ApplicantRepoStub"
 
-const TestLive = IntakeServiceLive.pipe(Layer.provide(ApplicantRepoStub))
+const TestLive = IntakeService.layer.pipe(Layer.provide(ApplicantRepoStub))
 
 const inputArb = Schema.toArbitrary(IntakePayload)
 

@@ -3,6 +3,19 @@ import type { IntakePayload } from "@effect-redacted/shared/http/payloads"
 import { Context, Effect, Layer, Redacted } from "effect"
 import { ApplicantRepo } from "../db/ApplicantRepo"
 
+/**
+ * Receives a decoded `IntakePayload`, wraps `netWorth` in `Redacted`, persists
+ * the applicant, and annotates the current span and log line with the
+ * wrapped value. The returned `referenceId` is the DB-assigned `ApplicantId`.
+ *
+ * `Effect.orDie` on `repo.insert` collapses `SqlError | SchemaError` to a
+ * defect — these are server faults, not typed business errors. Trap: adding
+ * a UNIQUE constraint later (e.g. on `email`) means duplicate inserts come
+ * back as `SqlError` with Postgres code `23505`; when that lands, replace
+ * `orDie` with `catchTag("SqlError")` and route `23505` to a typed 4xx.
+ *
+ * Layer requires `ApplicantRepo`.
+ */
 export class IntakeService extends Context.Service<
   IntakeService,
   {
@@ -11,64 +24,53 @@ export class IntakeService extends Context.Service<
       payload: IntakePayload,
     ) => Effect.Effect<{ referenceId: string; email: MaskedEmail }>
   }
->()("@services/IntakeService") {}
+>()("@services/IntakeService") {
+  static readonly layer = Layer.effect(
+    IntakeService,
+    Effect.gen(function* () {
+      const repo = yield* ApplicantRepo
 
-/**
- * Wraps `netWorth` in `Redacted`, persists the applicant, annotates the
- * current span and log line with the wrapped value. The returned
- * `referenceId` is the DB-assigned `ApplicantId`.
- *
- * `Effect.orDie` on `repo.insert` collapses `SqlError | SchemaError` to a
- * defect — these are server faults, not typed business errors. Trap: adding
- * a UNIQUE constraint later (e.g. on `email`) means duplicate inserts come
- * back as `SqlError` with Postgres code `23505`; when that lands, replace
- * `orDie` with `catchTag("SqlError")` and route `23505` to a typed 4xx.
- */
-export const IntakeServiceLive = Layer.effect(
-  IntakeService,
-  Effect.gen(function* () {
-    const repo = yield* ApplicantRepo
+      const persist = (payload: IntakePayload) =>
+        Effect.gen(function* () {
+          const netWorth = Redacted.make(payload.netWorth, { label: "netWorth" })
 
-    const persist = (payload: IntakePayload) =>
-      Effect.gen(function* () {
-        const netWorth = Redacted.make(payload.netWorth, { label: "netWorth" })
+          const referenceId = yield* repo
+            .insert({
+              firstName: payload.firstName,
+              lastName: payload.lastName,
+              email: payload.email,
+              phone: payload.phone,
+              netWorth,
+            })
+            .pipe(Effect.orDie)
 
-        const referenceId = yield* repo
-          .insert({
+          yield* Effect.annotateCurrentSpan({
+            referenceId,
             firstName: payload.firstName,
             lastName: payload.lastName,
             email: payload.email,
             phone: payload.phone,
             netWorth,
           })
-          .pipe(Effect.orDie)
+          yield* Effect.logInfo("intake received").pipe(
+            Effect.annotateLogs({ referenceId, netWorth }),
+          )
 
-        yield* Effect.annotateCurrentSpan({
-          referenceId,
-          firstName: payload.firstName,
-          lastName: payload.lastName,
-          email: payload.email,
-          phone: payload.phone,
-          netWorth,
+          return referenceId
         })
-        yield* Effect.logInfo("intake received").pipe(
-          Effect.annotateLogs({ referenceId, netWorth }),
-        )
 
-        return referenceId
+      return IntakeService.of({
+        intake: (payload) =>
+          Effect.gen(function* () {
+            const referenceId = yield* persist(payload)
+            return { referenceId }
+          }),
+        intakeWithMask: (payload) =>
+          Effect.gen(function* () {
+            const referenceId = yield* persist(payload)
+            return { referenceId, email: maskEmail(payload.email) }
+          }),
       })
-
-    return IntakeService.of({
-      intake: (payload) =>
-        Effect.gen(function* () {
-          const referenceId = yield* persist(payload)
-          return { referenceId }
-        }),
-      intakeWithMask: (payload) =>
-        Effect.gen(function* () {
-          const referenceId = yield* persist(payload)
-          return { referenceId, email: maskEmail(payload.email) }
-        }),
-    })
-  }),
-)
+    }),
+  )
+}

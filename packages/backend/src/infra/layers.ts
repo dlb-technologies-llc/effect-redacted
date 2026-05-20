@@ -5,9 +5,9 @@ import { AppApi } from "@effect-redacted/shared/http/api"
 import { Layer } from "effect"
 import { HttpRouter } from "effect/unstable/http"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
-import { ApplicantRepoLive } from "../db/ApplicantRepo"
+import { ApplicantRepo } from "../db/ApplicantRepo"
 import { IntakeHandlersLive } from "../http/handlers"
-import { IntakeServiceLive } from "../services/IntakeService"
+import { IntakeService } from "../services/IntakeService"
 import { DatabaseLive } from "./DatabaseService"
 import { migrationsDir } from "./migrationsDir"
 import { TelemetryLive } from "./TelemetryLive"
@@ -37,8 +37,8 @@ const MigrationsLive = PgMigrator.layer({
 })
 
 export const AppDevLayer = Layer.mergeAll(ServerLive, MigrationsLive).pipe(
-  Layer.provide(IntakeServiceLive),
-  Layer.provide(ApplicantRepoLive),
+  Layer.provide(IntakeService.layer),
+  Layer.provide(ApplicantRepo.layer),
   Layer.provide(DatabaseLive),
   Layer.provide(NodeServices.layer),
   Layer.provide(TelemetryLive),

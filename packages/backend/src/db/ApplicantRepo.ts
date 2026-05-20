@@ -14,7 +14,7 @@ import type { SqlError } from "effect/unstable/sql/SqlError"
 /**
  * Insert shape for an applicant. `netWorth` arrives wrapped in `Redacted`;
  * everywhere else in the codebase it stays wrapped. The unwrap happens at
- * exactly one place — inside `ApplicantRepoLive.insert` below.
+ * exactly one place — inside `ApplicantRepo.layer.insert` below.
  */
 export type ApplicantInsert = {
   readonly firstName: FirstName
@@ -24,15 +24,6 @@ export type ApplicantInsert = {
   readonly netWorth: Redacted.Redacted<NetWorth>
 }
 
-export class ApplicantRepo extends Context.Service<
-  ApplicantRepo,
-  {
-    readonly insert: (
-      input: ApplicantInsert,
-    ) => Effect.Effect<ApplicantId, SqlError | Schema.SchemaError>
-  }
->()("@db/ApplicantRepo") {}
-
 /**
  * Live repository for `Applicant`.
  *
@@ -40,33 +31,45 @@ export class ApplicantRepo extends Context.Service<
  * `insert` runs `INSERT … RETURNING *` against Postgres and decodes the
  * result row through the Model.
  *
- * This wrapper exists for one reason: to confine `Redacted.value(…)` to a
- * single call site. The wrapped `netWorth` is unwrapped right before the
- * insert payload is handed to the generated repo. Grep `Redacted.value`
+ * `ApplicantRepo.layer` exists for one reason: to confine `Redacted.value(…)`
+ * to a single call site. The wrapped `netWorth` is unwrapped right before
+ * the insert payload is handed to the generated repo. Grep `Redacted.value`
  * to audit — the ONE hit in src/ is the line below.
+ *
+ * Layer requires `SqlClient` — provided by `DatabaseLive` in prod and by
+ * `FreshDbLayer` (testcontainers) in integration tests.
  */
-export const ApplicantRepoLive = Layer.effect(
+export class ApplicantRepo extends Context.Service<
   ApplicantRepo,
-  Effect.gen(function* () {
-    const repo = yield* SqlModel.makeRepository(Applicant, {
-      tableName: "applicants",
-      spanPrefix: "Applicant",
-      idColumn: "id",
-    })
-    return ApplicantRepo.of({
-      insert: (input) =>
-        Effect.gen(function* () {
-          const id = yield* Schema.decodeUnknownEffect(ApplicantId)(crypto.randomUUID())
-          const row = yield* repo.insert({
-            id,
-            firstName: input.firstName,
-            lastName: input.lastName,
-            email: input.email,
-            phone: input.phone,
-            netWorth: Redacted.value(input.netWorth),
-          })
-          return row.id
-        }),
-    })
-  }),
-)
+  {
+    readonly insert: (
+      input: ApplicantInsert,
+    ) => Effect.Effect<ApplicantId, SqlError | Schema.SchemaError>
+  }
+>()("@db/ApplicantRepo") {
+  static readonly layer = Layer.effect(
+    ApplicantRepo,
+    Effect.gen(function* () {
+      const repo = yield* SqlModel.makeRepository(Applicant, {
+        tableName: "applicants",
+        spanPrefix: "Applicant",
+        idColumn: "id",
+      })
+      return ApplicantRepo.of({
+        insert: (input) =>
+          Effect.gen(function* () {
+            const id = yield* Schema.decodeUnknownEffect(ApplicantId)(crypto.randomUUID())
+            const row = yield* repo.insert({
+              id,
+              firstName: input.firstName,
+              lastName: input.lastName,
+              email: input.email,
+              phone: input.phone,
+              netWorth: Redacted.value(input.netWorth),
+            })
+            return row.id
+          }),
+      })
+    }),
+  )
+}
