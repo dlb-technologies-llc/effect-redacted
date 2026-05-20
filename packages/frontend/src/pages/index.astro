@@ -1,6 +1,6 @@
 ---
 import "@/styles/global.css"
-import { Button } from "@/components/ui/button"
+import { IntakeForm } from "@/components/IntakeForm"
 ---
 
 <!doctype html>
@@ -8,20 +8,23 @@ import { Button } from "@/components/ui/button"
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>effect-redacted</title>
+    <title>Innovation Lab Capital — Begin a conversation</title>
   </head>
   <body>
-    <main class="mx-auto flex min-h-screen max-w-2xl flex-col justify-center gap-6 px-6">
-      <header class="space-y-2">
-        <h1 class="text-4xl font-semibold tracking-tight">effect-redacted</h1>
-        <p class="text-muted-foreground">
-          A sandbox for exploring Effect's <code class="rounded bg-muted px-1.5 py-0.5 text-sm">Schema.Redacted</code> across HttpApi, RPC, and Cluster boundaries.
+    <main class="mx-auto flex min-h-screen max-w-xl flex-col justify-center gap-10 px-6 py-16">
+      <header class="space-y-3">
+        <p class="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+          Innovation Lab Capital
+        </p>
+        <h1 class="text-3xl font-semibold tracking-tight sm:text-4xl">
+          Private investment for accredited investors.
+        </h1>
+        <p class="max-w-prose text-base leading-relaxed text-muted-foreground">
+          A small, selective practice. We invest patient capital alongside founders and operators
+          we know well.
         </p>
       </header>
-      <div class="flex gap-3">
-        <Button client:load>Get started</Button>
-        <Button variant="outline" client:load>Docs</Button>
-      </div>
+      <IntakeForm client:load />
     </main>
   </body>
 </html>
