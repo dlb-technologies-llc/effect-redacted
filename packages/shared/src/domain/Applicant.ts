@@ -1,14 +1,17 @@
 import { Schema, SchemaGetter } from "effect"
+import { Model } from "effect/unstable/schema"
 
 /**
- * Arbitraries use fast-check primitives directly (`fc.stringMatching`,
- * `fc.emailAddress`) so they participate in fast-check's seeded RNG. The
- * earlier `fc.constant(null).map(() => faker.X())` form bypassed the seed —
- * shrink/replay didn't work.
+ * Branded leaves for the applicant fields.
+ *
+ * Arbitraries use fast-check primitives (`fc.stringMatching`, `fc.emailAddress`)
+ * so they participate in fast-check's seeded RNG. The narrower
+ * `NAME_ARB_PATTERN` keeps generated names ASCII to avoid `’`-vs-`'`
+ * decoder noise; both patterns satisfy `NAME_PATTERN`.
  */
 
 const NAME_PATTERN = /^[A-Za-z'’\- ]{1,80}$/
-const NAME_ARB_PATTERN = /^[A-Za-z]{1,20}$/ // narrower for arbitrary; still satisfies NAME_PATTERN
+const NAME_ARB_PATTERN = /^[A-Za-z]{1,20}$/
 
 export const FirstName = Schema.String.pipe(
   Schema.check(
@@ -65,10 +68,47 @@ export const Phone = Schema.String.pipe(
 })
 export type Phone = typeof Phone.Type
 
+/**
+ * Whole US dollars. The $2B cap fits in signed 32-bit and well within
+ * `Number.MAX_SAFE_INTEGER`, so a Postgres `INTEGER` column round-trips
+ * as a JS number without any pg type-parser config.
+ */
 export const NetWorth = Schema.Int.pipe(
   Schema.check(Schema.isGreaterThanOrEqualTo(0)),
-  Schema.check(Schema.isLessThanOrEqualTo(100_000_000_000_00)), // $100B cap, integer cents
+  Schema.check(Schema.isLessThanOrEqualTo(2_000_000_000)),
 ).annotate({
-  toArbitrary: () => (fc) => fc.integer({ min: 0, max: 100_000_000_00 }),
+  toArbitrary: () => (fc) => fc.integer({ min: 0, max: 2_000_000_000 }),
 })
 export type NetWorth = typeof NetWorth.Type
+
+const ApplicantIdBase = Schema.String.pipe(
+  Schema.check(Schema.isUUID(4, { message: "Must be a valid UUID v4" })),
+)
+export const ApplicantId = ApplicantIdBase.pipe(Schema.brand("ApplicantId"))
+export type ApplicantId = typeof ApplicantId.Type
+
+/**
+ * `Applicant` is the single source of truth for FE wire shape, BE handler
+ * types, and the Postgres row. Wire shapes are derived from
+ * `Applicant.fields` via `Schema.Struct(Applicant.fields).mapFields(...)`;
+ * the SqlModel repository is generated from `Applicant` directly.
+ *
+ * `id` uses `Model.GeneratedByApp` so it's present in DB insert/update
+ * variants (required by `SqlModel.makeRepository`'s `idColumn` constraint)
+ * but omitted from JSON create/update (so the wire schema doesn't include
+ * it). `ApplicantRepo.insert` generates the UUID via `crypto.randomUUID()`
+ * before handing it to the repo; the migration's `DEFAULT gen_random_uuid()`
+ * is a defensive fallback.
+ *
+ * `createdAt` uses `Model.GeneratedByDb` — read-only, supplied by the
+ * column's `DEFAULT CURRENT_TIMESTAMP`.
+ */
+export class Applicant extends Model.Class<Applicant>("Applicant")({
+  id: Model.GeneratedByApp(ApplicantId),
+  firstName: FirstName,
+  lastName: LastName,
+  email: Email,
+  phone: Phone,
+  netWorth: NetWorth,
+  createdAt: Model.GeneratedByDb(Schema.DateTimeUtcFromDate),
+}) {}
