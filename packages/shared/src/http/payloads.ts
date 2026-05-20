@@ -31,8 +31,9 @@ export type IntakePayloadAntiPattern = typeof IntakePayloadAntiPattern.Type
 
 /**
  * Response-side anti-pattern for `POST /intake-redacted-response`. The
- * literal answer to Vinicius's question: putting `Schema.Redacted` in a
- * success schema makes the server's response encoder fail.
+ * literal answer to the question this repo exists to answer: putting
+ * `Schema.Redacted` in a success schema makes the server's response
+ * encoder fail.
  */
 export const RedactedResponse = Schema.Struct({
   referenceId: Schema.String,
