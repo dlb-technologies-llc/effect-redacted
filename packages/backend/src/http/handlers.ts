@@ -3,10 +3,27 @@ import { Effect, Redacted } from "effect"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
 import { IntakeService } from "../services/IntakeService"
 
+/**
+ * Four endpoints, on purpose.
+ *
+ * - `submitIntake` — working pattern. Wire is plain branded strings; the
+ *   service wraps `netWorth` in `Redacted` and persists. Returns the row's
+ *   `ApplicantId` as the response `referenceId`.
+ * - `submitIntakeEcho` — request-side anti-pattern. A typed
+ *   `HttpApiClient` cannot encode `Schema.RedactedFromValue(NetWorth)`,
+ *   so the encode-forbidden failure surfaces client-side before the
+ *   request is sent. A raw curl reaches this handler (decode is allowed);
+ *   we throw a defect from inside `Effect.gen` to make that reachability
+ *   boundary unmistakable.
+ * - `submitIntakeRedactedResponse` — response-side anti-pattern (the
+ *   literal question this repo answers). The handler builds a response
+ *   whose schema contains `Schema.Redacted(NetWorth)`; the response
+ *   encoder fails when writing the body.
+ * - `submitIntakeMaskedResponse` — working alternative. The server
+ *   hand-masks the email and returns a plain `MaskedEmail` string.
+ */
 export const IntakeHandlersLive = HttpApiBuilder.group(AppApi, "intake", (handlers) =>
   handlers
-    /* 1. Working pattern. Wire is plain branded strings; the service wraps
-     *    netWorth in Redacted internally for logs/traces. */
     .handle("submitIntake", ({ payload }) =>
       Effect.gen(function* () {
         const service = yield* IntakeService
@@ -14,14 +31,6 @@ export const IntakeHandlersLive = HttpApiBuilder.group(AppApi, "intake", (handle
         return { status: "received" as const, referenceId }
       }),
     )
-
-    /* 2. Anti-pattern A — request-side Redacted.
-     *
-     *    A typed HttpApiClient cannot reach this handler: it would have to
-     *    encode `Schema.RedactedFromValue(NetWorth)` on the wire, and that
-     *    encoder is forbidden. A raw curl WILL reach this handler (the
-     *    decode direction is allowed — raw number → Redacted), so we throw
-     *    a defect to make the reachability boundary unmistakable. */
     .handle("submitIntakeEcho", () =>
       Effect.gen(function* () {
         yield* Effect.void
@@ -31,10 +40,6 @@ export const IntakeHandlersLive = HttpApiBuilder.group(AppApi, "intake", (handle
         )
       }),
     )
-
-    /* 3. Anti-pattern B — response-side Redacted (Vinicius's question).
-     *    Handler builds a response whose schema contains Schema.Redacted.
-     *    The response encoder fails when writing the body. */
     .handle("submitIntakeRedactedResponse", ({ payload }) =>
       Effect.gen(function* () {
         const service = yield* IntakeService
@@ -45,8 +50,6 @@ export const IntakeHandlersLive = HttpApiBuilder.group(AppApi, "intake", (handle
         }
       }),
     )
-
-    /* 4. Working alternative — mask server-side, return a plain branded string */
     .handle("submitIntakeMaskedResponse", ({ payload }) =>
       Effect.gen(function* () {
         const service = yield* IntakeService

@@ -13,6 +13,17 @@ export class IntakeService extends Context.Service<
   }
 >()("@services/IntakeService") {}
 
+/**
+ * Wraps `netWorth` in `Redacted`, persists the applicant, annotates the
+ * current span and log line with the wrapped value. The returned
+ * `referenceId` is the DB-assigned `ApplicantId`.
+ *
+ * `Effect.orDie` on `repo.insert` collapses `SqlError | SchemaError` to a
+ * defect — these are server faults, not typed business errors. Trap: adding
+ * a UNIQUE constraint later (e.g. on `email`) means duplicate inserts come
+ * back as `SqlError` with Postgres code `23505`; when that lands, replace
+ * `orDie` with `catchTag("SqlError")` and route `23505` to a typed 4xx.
+ */
 export const IntakeServiceLive = Layer.effect(
   IntakeService,
   Effect.gen(function* () {
@@ -22,18 +33,6 @@ export const IntakeServiceLive = Layer.effect(
       Effect.gen(function* () {
         const netWorth = Redacted.make(payload.netWorth, { label: "netWorth" })
 
-        // Note: the spans/logs below intentionally annotate netWorth AFTER
-        // the DB write completes so the reference id is real. Annotation
-        // order doesn't matter for the audit invariant — what matters is
-        // that we never log/annotate the unwrapped value.
-        //
-        // ⚠️ TRAP: if a future migration adds a UNIQUE constraint (e.g. on
-        // `email`), a duplicate-insert raises a SqlError carrying Postgres
-        // code `23505`. With the `orDie` below, that surfaces as a 500
-        // instead of a typed 4xx. When a constraint lands, replace this
-        // with a `catchTag("SqlError")` that pattern-matches on the code
-        // and routes constraint violations to a typed IntakeValidationError
-        // or IntakeProcessingError.
         const referenceId = yield* repo
           .insert({
             firstName: payload.firstName,

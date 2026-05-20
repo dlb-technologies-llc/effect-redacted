@@ -1,15 +1,26 @@
 /**
- * Production failure modes this catches that types/monitoring won't:
+ * Property tests for `IntakeService` against the in-memory `ApplicantRepoStub`.
  *
- * 1. Schema-arbitrary drift — if NetWorth's check is tightened later, the
- *    arbitrary's range must follow; the property test runs against the
- *    LIVE schema so it fails when they diverge.
- * 2. Redacted-leak regression — if a future refactor changes how the
- *    service logs/annotates and accidentally calls Redacted.value(...),
- *    the JSON.stringify property test fails.
- * 3. maskEmail correctness — produces output that the wire schema
- *    accepts AND never contains the raw local part. A unit invariant
- *    that's impossible to assert from production monitoring.
+ * Production failure modes these catch:
+ *
+ * 1. Schema-arbitrary drift. The arbitraries are derived from the live
+ *    `IntakePayload` schema, so a future tightening of any leaf (e.g.
+ *    lowering NetWorth's max) flows automatically into the test inputs.
+ * 2. Redacted-leak regression. The third test pins that JSON.stringify of a
+ *    labelled `Redacted` returns `"<redacted:label>"` and never contains
+ *    the raw value — if a future refactor swaps the wrapper for a plain
+ *    value somewhere upstream, this fails.
+ * 3. maskEmail correctness. The second test pins that the masked output
+ *    keeps the domain, strips the local part beyond the first character,
+ *    and never contains the raw local part.
+ *
+ * `Schema.toArbitrary(IntakePayload)` is invoked manually instead of via
+ * the `it.effect.prop({ input: IntakePayload }, ...)` record form because
+ * the record form silently drops the schema conversion in
+ * `@effect/vitest@4.0.0-beta.69` (verified at effect-smol
+ * `packages/vitest/src/internal/internal.ts:113-117` — missing `else`
+ * between the `Schema.isSchema` branch and the unconditional re-assignment).
+ * Revert this workaround when upstream lands the fix.
  */
 import { expect, layer } from "@effect/vitest"
 import { ApplicantId } from "@effect-redacted/shared/domain/Applicant"
@@ -20,15 +31,6 @@ import { ApplicantRepoStub } from "../setup/ApplicantRepoStub"
 
 const TestLive = IntakeServiceLive.pipe(Layer.provide(ApplicantRepoStub))
 
-// `it.effect.prop` record form (`{ input: Schema }`) silently drops the
-// schema-to-arbitrary conversion in @effect/vitest. Verified still
-// present at 4.0.0-beta.69 — see
-// `~/.claude/effect-smol/packages/vitest/src/internal/internal.ts:113-117`:
-// the schema-conversion branch sets result[key], then an unconditional
-// `result[key] = arb` overwrites the conversion. Missing an `else`.
-//
-// TODO: remove this workaround when upstream lands an `else` between the
-// Schema.isSchema(arb) branch and the final assignment.
 const inputArb = Schema.toArbitrary(IntakePayload)
 
 layer(TestLive)("IntakeService", (it) => {
@@ -39,7 +41,6 @@ layer(TestLive)("IntakeService", (it) => {
       Effect.gen(function* () {
         const service = yield* IntakeService
         const result = yield* service.intake(input)
-        // referenceId is the row's ApplicantId — should decode cleanly.
         yield* Schema.decodeUnknownEffect(ApplicantId)(result.referenceId)
       }),
     { fastCheck: { numRuns: 100 } },
@@ -56,8 +57,6 @@ layer(TestLive)("IntakeService", (it) => {
         const domain = input.email.slice(at)
         expect(result.email).toMatch(/^[^@]\*+@/)
         expect(result.email.endsWith(domain)).toBe(true)
-        // If the local part has more than one character, the masked output
-        // must NOT contain the full original local part.
         if (at > 1) {
           const localPart = input.email.slice(0, at)
           expect(result.email.startsWith(localPart)).toBe(false)

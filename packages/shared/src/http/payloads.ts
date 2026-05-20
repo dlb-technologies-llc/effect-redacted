@@ -2,11 +2,9 @@ import { Schema, Struct } from "effect"
 import { Applicant, NetWorth } from "../domain/Applicant.js"
 import { MaskedEmail } from "../domain/MaskedEmail.js"
 
-/* 1. WORKING PATTERN — /intake
- *
- * Derived from the `Applicant` Model so the wire schema, the in-memory
- * handler types, AND the DB schema all flow from one source of truth.
- * Adding/removing a field on `Applicant` propagates here automatically.
+/**
+ * Wire payload for `POST /intake`. Derived from `Applicant.fields` so any
+ * change to the Model propagates here automatically.
  */
 export const IntakePayload = Schema.Struct(Applicant.fields).mapFields(
   Struct.pick(["firstName", "lastName", "email", "phone", "netWorth"]),
@@ -19,20 +17,34 @@ export const IntakeResponse = Schema.Struct({
 })
 export type IntakeResponse = typeof IntakeResponse.Type
 
-/* 2. ANTI-PATTERN A — /intake-echo-redacted (REQUEST-side Redacted) */
+/**
+ * Request-side anti-pattern for `POST /intake-echo-redacted`.
+ *
+ * `Schema.RedactedFromValue` is encode-forbidden, so a typed `HttpApiClient`
+ * cannot serialize this payload. The backend test exercises the failure
+ * directly through the schema's JSON codec.
+ */
 export const IntakePayloadAntiPattern = Schema.Struct({
   netWorth: Schema.RedactedFromValue(NetWorth),
 })
 export type IntakePayloadAntiPattern = typeof IntakePayloadAntiPattern.Type
 
-/* 3. ANTI-PATTERN B — /intake-redacted-response (RESPONSE-side Redacted) */
+/**
+ * Response-side anti-pattern for `POST /intake-redacted-response`. The
+ * literal answer to Vinicius's question: putting `Schema.Redacted` in a
+ * success schema makes the server's response encoder fail.
+ */
 export const RedactedResponse = Schema.Struct({
   referenceId: Schema.String,
   netWorth: Schema.Redacted(NetWorth),
 })
 export type RedactedResponse = typeof RedactedResponse.Type
 
-/* 4. WORKING ALTERNATIVE — /intake-masked-response */
+/**
+ * Working alternative for `POST /intake-masked-response`. If you really
+ * want to echo something sensitive-looking back, hand-mask on the server
+ * and put a plain branded string on the wire.
+ */
 export const MaskedResponse = Schema.Struct({
   referenceId: Schema.String,
   email: MaskedEmail,

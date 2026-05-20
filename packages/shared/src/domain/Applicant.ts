@@ -2,12 +2,16 @@ import { Schema, SchemaGetter } from "effect"
 import { Model } from "effect/unstable/schema"
 
 /**
- * Arbitraries use fast-check primitives directly (`fc.stringMatching`,
- * `fc.emailAddress`) so they participate in fast-check's seeded RNG.
+ * Branded leaves for the applicant fields.
+ *
+ * Arbitraries use fast-check primitives (`fc.stringMatching`, `fc.emailAddress`)
+ * so they participate in fast-check's seeded RNG. The narrower
+ * `NAME_ARB_PATTERN` keeps generated names ASCII to avoid `’`-vs-`'`
+ * decoder noise; both patterns satisfy `NAME_PATTERN`.
  */
 
 const NAME_PATTERN = /^[A-Za-z'’\- ]{1,80}$/
-const NAME_ARB_PATTERN = /^[A-Za-z]{1,20}$/ // narrower for arbitrary; still satisfies NAME_PATTERN
+const NAME_ARB_PATTERN = /^[A-Za-z]{1,20}$/
 
 export const FirstName = Schema.String.pipe(
   Schema.check(
@@ -64,11 +68,11 @@ export const Phone = Schema.String.pipe(
 })
 export type Phone = typeof Phone.Type
 
-// Whole US dollars. INTEGER fits up to ~$2.1B (max signed 32-bit), which is
-// well above "accredited investor" thresholds and well below
-// `Number.MAX_SAFE_INTEGER`, so JS number and Postgres INTEGER agree without
-// any pg type-parser config. Cents-level precision isn't useful for an
-// intake form — nobody reports $X.50 of net worth.
+/**
+ * Whole US dollars. The $2B cap fits in signed 32-bit and well within
+ * `Number.MAX_SAFE_INTEGER`, so a Postgres `INTEGER` column round-trips
+ * as a JS number without any pg type-parser config.
+ */
 export const NetWorth = Schema.Int.pipe(
   Schema.check(Schema.isGreaterThanOrEqualTo(0)),
   Schema.check(Schema.isLessThanOrEqualTo(2_000_000_000)),
@@ -77,34 +81,28 @@ export const NetWorth = Schema.Int.pipe(
 })
 export type NetWorth = typeof NetWorth.Type
 
-/* ──────────────────────────────────────────────────────────────────────────
- * Applicant Model — single source of truth across FE wire, BE handler, DB.
- *
- * - `id` is `Model.GeneratedByApp(ApplicantId)`: present in DB insert/update
- *   variants (so SqlModel's repo can use it as the WHERE-clause id) but
- *   omitted from JSON create/update (so the wire schema doesn't include
- *   it — the FE never supplies an id). The app generates the UUID inside
- *   `ApplicantRepo.insert` via `crypto.randomUUID()` and decodes it
- *   through the `ApplicantId` schema. The migration also keeps
- *   `DEFAULT gen_random_uuid()` as a defensive fallback.
- * - `createdAt` is `Model.GeneratedByDb(Schema.DateTimeUtcFromDate)`:
- *   read-only — the column has `DEFAULT CURRENT_TIMESTAMP` and the app
- *   never supplies it.
- *
- * Derived shapes:
- * - `Applicant.fields` — field map (used by `Schema.Struct(Applicant.fields)`
- *   to mint wire shapes via `mapFields(Struct.pick(...))`)
- * - `Applicant.insert` — insert variant (no `id`, no `createdAt`); this is
- *   what the SqlModel-generated repo expects
- * - `Applicant.Type` — full entity row including the DB-generated id
- * ────────────────────────────────────────────────────────────────────────── */
-
 const ApplicantIdBase = Schema.String.pipe(
   Schema.check(Schema.isUUID(4, { message: "Must be a valid UUID v4" })),
 )
 export const ApplicantId = ApplicantIdBase.pipe(Schema.brand("ApplicantId"))
 export type ApplicantId = typeof ApplicantId.Type
 
+/**
+ * `Applicant` is the single source of truth for FE wire shape, BE handler
+ * types, and the Postgres row. Wire shapes are derived from
+ * `Applicant.fields` via `Schema.Struct(Applicant.fields).mapFields(...)`;
+ * the SqlModel repository is generated from `Applicant` directly.
+ *
+ * `id` uses `Model.GeneratedByApp` so it's present in DB insert/update
+ * variants (required by `SqlModel.makeRepository`'s `idColumn` constraint)
+ * but omitted from JSON create/update (so the wire schema doesn't include
+ * it). `ApplicantRepo.insert` generates the UUID via `crypto.randomUUID()`
+ * before handing it to the repo; the migration's `DEFAULT gen_random_uuid()`
+ * is a defensive fallback.
+ *
+ * `createdAt` uses `Model.GeneratedByDb` — read-only, supplied by the
+ * column's `DEFAULT CURRENT_TIMESTAMP`.
+ */
 export class Applicant extends Model.Class<Applicant>("Applicant")({
   id: Model.GeneratedByApp(ApplicantId),
   firstName: FirstName,

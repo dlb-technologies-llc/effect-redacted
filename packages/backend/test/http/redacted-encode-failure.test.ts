@@ -1,24 +1,20 @@
 /**
- * Production failure modes this catches that types/monitoring won't:
+ * Pins the encode-forbidden behavior of `Schema.Redacted` and
+ * `Schema.RedactedFromValue`. The assertions route through
+ * `Schema.toCodecJson(...)` because the `Getter.forbidden` encoder lives on
+ * the JSON codec annotation, not on the default Type→Encoded codec — and
+ * HttpApi serializes responses through the JSON codec, so the failure mode
+ * this test catches is the one the HTTP server actually exhibits.
  *
- * 1. Future Effect upgrade silently changes Schema.Redacted's encode
- *    behavior from "forbidden" to "passthrough" — this test fails the
- *    moment that happens, surfacing the regression before secrets leak.
- * 2. Documentation drift — Vinicius's question is the literal subject
- *    of this repo. If the test still asserts "Cannot serialize Redacted"
- *    on every release, the README's claim about the failure mode is
- *    accurate. If it breaks, the README is lying.
+ * Production failure modes this catches:
  *
- * Test harness: Option B — direct schema-encode assertions (no HTTP
- * server). These tests pin the exact encoder behavior of the wire
- * schemas. The HTTP layer is implementation detail; the property
- * under investigation is the schema itself.
- *
- * Important: we route through `Schema.toCodecJson(...)` because the
- * `Getter.forbidden` encoder on `Schema.Redacted` / `Schema.RedactedFromValue`
- * is wired through the `toCodecJson` annotation (not the default Type→Encoded
- * codec). The HTTP server uses the JSON codec, so this matches the
- * production failure mode.
+ * 1. Future Effect release silently changes the encoder behavior from
+ *    "forbidden" to "passthrough". This test fails the moment that
+ *    happens, surfacing the regression before any secret can leak.
+ * 2. README drift. The README claims these specific encoder failures hold
+ *    "Cannot encode Redacted" / "Cannot serialize Redacted". If the
+ *    upstream messages ever change, this test fails and the README needs
+ *    updating to match.
  */
 import { describe, expect, it } from "@effect/vitest"
 import { maskEmail } from "@effect-redacted/shared/domain/MaskedEmail"
@@ -66,7 +62,6 @@ describe("Schema.Redacted — encode-failure surfaces", () => {
             message.includes("Cannot serialize Redacted") ||
               message.includes("Cannot encode Redacted"),
           ).toBe(true)
-          // The label SHOULD appear in the failure message since we set one.
           expect(message.includes("netWorth")).toBe(true)
         }
       }),

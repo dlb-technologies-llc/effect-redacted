@@ -3,13 +3,10 @@ import { Effect, Layer, Schema } from "effect"
 import { type ApplicantInsert, ApplicantRepo } from "../../src/db/ApplicantRepo"
 
 /**
- * In-memory stub of `ApplicantRepo`. Test-only; lives under `test/setup/`
- * so it doesn't pollute the production package. Renamed from
- * `ApplicantRepoTest` to make the non-fidelity explicit — this layer
- * silently accepts any input (including duplicates) and stores the
- * `Redacted` wrapper intact. Tests that exercise the actual
- * `Redacted.value` audit boundary must use `ApplicantRepoLive` +
- * `FreshDbLayer` instead.
+ * In-memory stub of `ApplicantRepo` for unit tests. Silently accepts any
+ * input (including duplicates) and stores the `Redacted` wrapper intact.
+ * Tests that exercise the actual `Redacted.value` audit boundary must use
+ * `ApplicantRepoLive` + `FreshDbLayer` against a real Postgres instead.
  */
 export const ApplicantRepoStub = Layer.effect(
   ApplicantRepo,

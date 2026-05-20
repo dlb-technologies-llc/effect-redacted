@@ -26,10 +26,11 @@ const AppLive = HttpApiBuilder.layer(AppApi).pipe(
 
 const ServerLive = HttpRouter.serve(AppLive)
 
-// Runs the migrator on layer build so a fresh `DATABASE_URL` is brought
-// up to schema before the server accepts requests. Layer.effectDiscard
-// turns the side-effecting `PgMigrator.run` into a Layer that produces
-// nothing — its purpose is the side effect.
+/**
+ * Runs the migrator as a side effect when the layer is built, so a fresh
+ * `DATABASE_URL` is brought up to schema before the server accepts requests.
+ * `PgMigrator.layer` produces nothing — its purpose is the side effect.
+ */
 const MigrationsLive = PgMigrator.layer({
   schemaDirectory: `${os.tmpdir()}/effect-redacted-schema`,
   loader: PgMigrator.fromFileSystem(migrationsDir),
