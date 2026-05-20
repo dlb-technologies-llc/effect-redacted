@@ -45,6 +45,17 @@ export const IntakeServiceLive = Layer.effect(
             Effect.annotateLogs({ referenceId, netWorth }),
           )
 
+          // DEMO — explicit unwrap. This is the escape hatch: every place
+          // that calls Redacted.value(...) is a place that deliberately
+          // exposes the raw value. Grep for "Redacted.value" to audit.
+          // (In a real app you'd unwrap at the DB write, not in a log line.)
+          yield* Effect.logInfo("[demo] explicit unwrap").pipe(
+            Effect.annotateLogs({
+              referenceId,
+              netWorthRaw: Redacted.value(netWorth),
+            }),
+          )
+
           return { referenceId }
         }),
       intakeWithMask: (payload) =>
