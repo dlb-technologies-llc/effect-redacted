@@ -34,18 +34,13 @@ describe("Schema.Redacted — encode-failure surfaces", () => {
   it.effect("REQUEST anti-pattern: Schema.RedactedFromValue cannot encode (Getter.forbidden)", () =>
     Effect.gen(function* () {
       const payload = {
-        email: Redacted.make("ada@example.com", { label: "email" }),
-        netWorth: 1_000_000,
+        netWorth: Redacted.make(1_000_000, { label: "netWorth" }),
       }
       const codec = Schema.toCodecJson(IntakePayloadAntiPattern)
       const exit = yield* Effect.exit(Schema.encodeUnknownEffect(codec)(payload))
       expect(exit._tag).toBe("Failure")
       if (exit._tag === "Failure") {
         const message = Cause.pretty(exit.cause)
-        // The forbidden encoder for Schema.RedactedFromValue emits one of two
-        // specific messages depending on whether a label was set. Pin to those
-        // exact tokens — broader assertions would happily accept unrelated
-        // encoder regressions.
         expect(
           message.includes("Cannot encode Redacted with label") ||
             message.includes("Cannot encode Redacted"),
@@ -60,7 +55,7 @@ describe("Schema.Redacted — encode-failure surfaces", () => {
       Effect.gen(function* () {
         const responseValue = {
           referenceId: "ref_test_000000",
-          email: Redacted.make("ada@example.com", { label: "email" }),
+          netWorth: Redacted.make(1_000_000, { label: "netWorth" }),
         }
         const codec = Schema.toCodecJson(RedactedResponse)
         const exit = yield* Effect.exit(Schema.encodeUnknownEffect(codec)(responseValue))
@@ -72,7 +67,7 @@ describe("Schema.Redacted — encode-failure surfaces", () => {
               message.includes("Cannot encode Redacted"),
           ).toBe(true)
           // The label SHOULD appear in the failure message since we set one.
-          expect(message.includes("email")).toBe(true)
+          expect(message.includes("netWorth")).toBe(true)
         }
       }),
   )

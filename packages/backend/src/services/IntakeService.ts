@@ -3,23 +3,6 @@ import type { IntakePayload } from "@effect-redacted/shared/http/payloads"
 import { Context, Effect, Layer, Redacted } from "effect"
 import { ReferenceIdService } from "../infra/ReferenceIdService"
 
-/**
- * Internal representation of a decoded intake payload with every field wrapped
- * in `Redacted`. Derived from `IntakePayload` so adding a field to the wire
- * schema automatically propagates here — no parallel type definition.
- */
-export type ApplicantInternal = {
-  readonly [K in keyof IntakePayload]: Redacted.Redacted<IntakePayload[K]>
-}
-
-const wrap = (payload: IntakePayload): ApplicantInternal => ({
-  firstName: Redacted.make(payload.firstName, { label: "firstName" }),
-  lastName: Redacted.make(payload.lastName, { label: "lastName" }),
-  email: Redacted.make(payload.email, { label: "email" }),
-  phone: Redacted.make(payload.phone, { label: "phone" }),
-  netWorth: Redacted.make(payload.netWorth, { label: "netWorth" }),
-})
-
 export class IntakeService extends Context.Service<
   IntakeService,
   {
@@ -30,19 +13,6 @@ export class IntakeService extends Context.Service<
   }
 >()("@services/IntakeService") {}
 
-const annotateSpan = (referenceId: string, a: ApplicantInternal) =>
-  Effect.annotateCurrentSpan({
-    referenceId,
-    firstName: a.firstName,
-    lastName: a.lastName,
-    email: a.email,
-    phone: a.phone,
-    netWorth: a.netWorth,
-  })
-
-const logIntake = (referenceId: string, a: ApplicantInternal) =>
-  Effect.logInfo("intake received").pipe(Effect.annotateLogs({ referenceId, email: a.email }))
-
 export const IntakeServiceLive = Layer.effect(
   IntakeService,
   Effect.gen(function* () {
@@ -50,18 +20,53 @@ export const IntakeServiceLive = Layer.effect(
     return IntakeService.of({
       intake: (payload) =>
         Effect.gen(function* () {
-          const applicant = wrap(payload)
           const referenceId = yield* ids.next()
-          yield* annotateSpan(referenceId, applicant)
-          yield* logIntake(referenceId, applicant)
+
+          // Only netWorth is wrapped in Redacted — it's the field deemed
+          // particularly sensitive. The other fields stay as plain strings.
+          // The wrapper is created inline at the point of use so the
+          // pattern is visible right next to where it matters.
+          const netWorth = Redacted.make(payload.netWorth, { label: "netWorth" })
+
+          // Span attributes: every other field renders as its raw value;
+          // netWorth renders as "<redacted:netWorth>" because that's what
+          // Redacted.toString() returns and the OTel layer coerces with
+          // String() when it sees a non-primitive attribute value.
+          yield* Effect.annotateCurrentSpan({
+            referenceId,
+            firstName: payload.firstName,
+            lastName: payload.lastName,
+            email: payload.email,
+            phone: payload.phone,
+            netWorth,
+          })
+
+          yield* Effect.logInfo("intake received").pipe(
+            Effect.annotateLogs({ referenceId, netWorth }),
+          )
+
           return { referenceId }
         }),
       intakeWithMask: (payload) =>
         Effect.gen(function* () {
-          const applicant = wrap(payload)
           const referenceId = yield* ids.next()
-          yield* annotateSpan(referenceId, applicant)
-          yield* logIntake(referenceId, applicant)
+          const netWorth = Redacted.make(payload.netWorth, { label: "netWorth" })
+
+          yield* Effect.annotateCurrentSpan({
+            referenceId,
+            firstName: payload.firstName,
+            lastName: payload.lastName,
+            email: payload.email,
+            phone: payload.phone,
+            netWorth,
+          })
+
+          yield* Effect.logInfo("intake received").pipe(
+            Effect.annotateLogs({ referenceId, netWorth }),
+          )
+
+          // maskEmail is a server-derived sensitive-looking value, NOT a
+          // Redacted. The masked string is the data on the wire.
           return { referenceId, email: maskEmail(payload.email) }
         }),
     })

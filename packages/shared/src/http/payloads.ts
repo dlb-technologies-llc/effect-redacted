@@ -20,15 +20,14 @@ export type IntakeResponse = typeof IntakeResponse.Type
 
 /* 2. ANTI-PATTERN A — /intake-echo-redacted (REQUEST-side Redacted) */
 export const IntakePayloadAntiPattern = Schema.Struct({
-  email: Schema.RedactedFromValue(Email),
-  netWorth: NetWorth,
+  netWorth: Schema.RedactedFromValue(NetWorth),
 })
 export type IntakePayloadAntiPattern = typeof IntakePayloadAntiPattern.Type
 
 /* 3. ANTI-PATTERN B — /intake-redacted-response (RESPONSE-side Redacted) */
 export const RedactedResponse = Schema.Struct({
   referenceId: Schema.String,
-  email: Schema.Redacted(Email),
+  netWorth: Schema.Redacted(NetWorth),
 })
 export type RedactedResponse = typeof RedactedResponse.Type
 
