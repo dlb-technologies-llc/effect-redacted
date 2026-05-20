@@ -1,0 +1,12 @@
+node_modules
+dist
+.astro
+.cache
+.env
+.env.local
+.env.*.local
+.DS_Store
+*.log
+.turbo
+.vite
+bun.lock

@@ -1,0 +1,19 @@
+{
+  "name": "effect-redacted",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:frontend": "bun --filter @effect-redacted/frontend dev",
+    "dev:backend": "bun --filter @effect-redacted/backend dev",
+    "build": "bun --filter '*' build",
+    "lint": "biome check .",
+    "format": "biome format --write ."
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.2.0",
+    "typescript": "^5.7.2"
+  }
+}
