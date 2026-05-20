@@ -65,11 +65,11 @@ bun --filter @effect-redacted/backend test               # runs both
 ## Smoke the endpoints
 
 ```sh
-# 1. Working — returns {status:"received", referenceId:"ref_..."}
+# 1. Working — returns {status:"received", referenceId:"<uuid>"}
 curl -sX POST :3001/intake -H 'content-type: application/json' \
   -d '{"firstName":"Ada","lastName":"Lovelace","email":"ada@example.com","phone":"2025551234","netWorth":15000000}'
 
-# 4. Working alternative — returns {referenceId:"ref_...", email:"a**@example.com"}
+# 4. Working alternative — returns {referenceId:"<uuid>", email:"a**@example.com"}
 curl -sX POST :3001/intake-masked-response -H 'content-type: application/json' \
   -d '{"firstName":"Ada","lastName":"Lovelace","email":"ada@example.com","phone":"2025551234","netWorth":15000000}'
 

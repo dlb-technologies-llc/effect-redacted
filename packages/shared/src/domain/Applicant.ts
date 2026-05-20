@@ -1,10 +1,9 @@
 import { Schema, SchemaGetter } from "effect"
+import { Model } from "effect/unstable/schema"
 
 /**
  * Arbitraries use fast-check primitives directly (`fc.stringMatching`,
- * `fc.emailAddress`) so they participate in fast-check's seeded RNG. The
- * earlier `fc.constant(null).map(() => faker.X())` form bypassed the seed —
- * shrink/replay didn't work.
+ * `fc.emailAddress`) so they participate in fast-check's seeded RNG.
  */
 
 const NAME_PATTERN = /^[A-Za-z'’\- ]{1,80}$/
@@ -65,10 +64,53 @@ export const Phone = Schema.String.pipe(
 })
 export type Phone = typeof Phone.Type
 
+// Whole US dollars. INTEGER fits up to ~$2.1B (max signed 32-bit), which is
+// well above "accredited investor" thresholds and well below
+// `Number.MAX_SAFE_INTEGER`, so JS number and Postgres INTEGER agree without
+// any pg type-parser config. Cents-level precision isn't useful for an
+// intake form — nobody reports $X.50 of net worth.
 export const NetWorth = Schema.Int.pipe(
   Schema.check(Schema.isGreaterThanOrEqualTo(0)),
-  Schema.check(Schema.isLessThanOrEqualTo(100_000_000_000_00)), // $100B cap, integer cents
+  Schema.check(Schema.isLessThanOrEqualTo(2_000_000_000)),
 ).annotate({
-  toArbitrary: () => (fc) => fc.integer({ min: 0, max: 100_000_000_00 }),
+  toArbitrary: () => (fc) => fc.integer({ min: 0, max: 2_000_000_000 }),
 })
 export type NetWorth = typeof NetWorth.Type
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * Applicant Model — single source of truth across FE wire, BE handler, DB.
+ *
+ * - `id` is `Model.GeneratedByApp(ApplicantId)`: present in DB insert/update
+ *   variants (so SqlModel's repo can use it as the WHERE-clause id) but
+ *   omitted from JSON create/update (so the wire schema doesn't include
+ *   it — the FE never supplies an id). The app generates the UUID inside
+ *   `ApplicantRepo.insert` via `crypto.randomUUID()` and decodes it
+ *   through the `ApplicantId` schema. The migration also keeps
+ *   `DEFAULT gen_random_uuid()` as a defensive fallback.
+ * - `createdAt` is `Model.GeneratedByDb(Schema.DateTimeUtcFromDate)`:
+ *   read-only — the column has `DEFAULT CURRENT_TIMESTAMP` and the app
+ *   never supplies it.
+ *
+ * Derived shapes:
+ * - `Applicant.fields` — field map (used by `Schema.Struct(Applicant.fields)`
+ *   to mint wire shapes via `mapFields(Struct.pick(...))`)
+ * - `Applicant.insert` — insert variant (no `id`, no `createdAt`); this is
+ *   what the SqlModel-generated repo expects
+ * - `Applicant.Type` — full entity row including the DB-generated id
+ * ────────────────────────────────────────────────────────────────────────── */
+
+const ApplicantIdBase = Schema.String.pipe(
+  Schema.check(Schema.isUUID(4, { message: "Must be a valid UUID v4" })),
+)
+export const ApplicantId = ApplicantIdBase.pipe(Schema.brand("ApplicantId"))
+export type ApplicantId = typeof ApplicantId.Type
+
+export class Applicant extends Model.Class<Applicant>("Applicant")({
+  id: Model.GeneratedByApp(ApplicantId),
+  firstName: FirstName,
+  lastName: LastName,
+  email: Email,
+  phone: Phone,
+  netWorth: NetWorth,
+  createdAt: Model.GeneratedByDb(Schema.DateTimeUtcFromDate),
+}) {}

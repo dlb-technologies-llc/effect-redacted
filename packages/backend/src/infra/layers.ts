@@ -10,7 +10,6 @@ import { IntakeHandlersLive } from "../http/handlers"
 import { IntakeServiceLive } from "../services/IntakeService"
 import { DatabaseLive } from "./DatabaseService"
 import { migrationsDir } from "./migrationsDir"
-import { ReferenceIdServiceLive } from "./ReferenceIdService"
 import { TelemetryLive } from "./TelemetryLive"
 
 const allowedOrigins = (process.env.FRONTEND_ORIGIN ?? "http://localhost:4321")
@@ -38,7 +37,6 @@ const MigrationsLive = PgMigrator.layer({
 
 export const AppDevLayer = Layer.mergeAll(ServerLive, MigrationsLive).pipe(
   Layer.provide(IntakeServiceLive),
-  Layer.provide(ReferenceIdServiceLive),
   Layer.provide(ApplicantRepoLive),
   Layer.provide(DatabaseLive),
   Layer.provide(NodeServices.layer),

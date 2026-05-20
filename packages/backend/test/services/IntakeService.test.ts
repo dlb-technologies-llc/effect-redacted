@@ -12,16 +12,13 @@
  *    that's impossible to assert from production monitoring.
  */
 import { expect, layer } from "@effect/vitest"
+import { ApplicantId } from "@effect-redacted/shared/domain/Applicant"
 import { IntakePayload } from "@effect-redacted/shared/http/payloads"
 import { Effect, Layer, Redacted, Schema } from "effect"
-import { ReferenceIdServiceLive } from "../../src/infra/ReferenceIdService"
 import { IntakeService, IntakeServiceLive } from "../../src/services/IntakeService"
 import { ApplicantRepoStub } from "../setup/ApplicantRepoStub"
 
-const TestLive = IntakeServiceLive.pipe(
-  Layer.provide(ReferenceIdServiceLive),
-  Layer.provide(ApplicantRepoStub),
-)
+const TestLive = IntakeServiceLive.pipe(Layer.provide(ApplicantRepoStub))
 
 // `it.effect.prop` record form (`{ input: Schema }`) silently drops the
 // schema-to-arbitrary conversion in @effect/vitest. Verified still
@@ -36,13 +33,14 @@ const inputArb = Schema.toArbitrary(IntakePayload)
 
 layer(TestLive)("IntakeService", (it) => {
   it.effect.prop(
-    "intake returns a well-formed referenceId",
+    "intake returns a referenceId that decodes as a v4 UUID (the DB-assigned ApplicantId)",
     { input: inputArb },
     ({ input }) =>
       Effect.gen(function* () {
         const service = yield* IntakeService
         const result = yield* service.intake(input)
-        expect(result.referenceId).toMatch(/^ref_[0-9a-z]+_[0-9a-z]{6}$/)
+        // referenceId is the row's ApplicantId — should decode cleanly.
+        yield* Schema.decodeUnknownEffect(ApplicantId)(result.referenceId)
       }),
     { fastCheck: { numRuns: 100 } },
   )

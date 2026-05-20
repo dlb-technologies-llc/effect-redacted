@@ -1,6 +1,6 @@
+import { ApplicantId } from "@effect-redacted/shared/domain/Applicant"
 import { Effect, Layer, Schema } from "effect"
 import { type ApplicantInsert, ApplicantRepo } from "../../src/db/ApplicantRepo"
-import { ApplicantId } from "../../src/db/schema/Applicant"
 
 /**
  * In-memory stub of `ApplicantRepo`. Test-only; lives under `test/setup/`

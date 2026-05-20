@@ -1,15 +1,16 @@
-import { Schema } from "effect"
-import { Email, FirstName, LastName, NetWorth, Phone } from "../domain/Applicant.js"
+import { Schema, Struct } from "effect"
+import { Applicant, NetWorth } from "../domain/Applicant.js"
 import { MaskedEmail } from "../domain/MaskedEmail.js"
 
-/* 1. WORKING PATTERN — /intake */
-export const IntakePayload = Schema.Struct({
-  firstName: FirstName,
-  lastName: LastName,
-  email: Email,
-  phone: Phone,
-  netWorth: NetWorth,
-})
+/* 1. WORKING PATTERN — /intake
+ *
+ * Derived from the `Applicant` Model so the wire schema, the in-memory
+ * handler types, AND the DB schema all flow from one source of truth.
+ * Adding/removing a field on `Applicant` propagates here automatically.
+ */
+export const IntakePayload = Schema.Struct(Applicant.fields).mapFields(
+  Struct.pick(["firstName", "lastName", "email", "phone", "netWorth"]),
+)
 export type IntakePayload = typeof IntakePayload.Type
 
 export const IntakeResponse = Schema.Struct({

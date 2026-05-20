@@ -9,7 +9,7 @@ export default Effect.gen(function* () {
     last_name TEXT NOT NULL,
     email TEXT NOT NULL,
     phone TEXT NOT NULL,
-    net_worth BIGINT NOT NULL,
+    net_worth INTEGER NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`
 })

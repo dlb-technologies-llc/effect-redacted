@@ -1,4 +1,12 @@
-export { Email, FirstName, LastName, NetWorth, Phone } from "./domain/Applicant.js"
+export {
+  Applicant,
+  ApplicantId,
+  Email,
+  FirstName,
+  LastName,
+  NetWorth,
+  Phone,
+} from "./domain/Applicant.js"
 export {
   IntakeProcessingError,
   IntakeValidationError,
