@@ -2,8 +2,10 @@ import { AppApi } from "@effect-redacted/shared/http/api"
 import { Layer } from "effect"
 import { HttpRouter } from "effect/unstable/http"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
+import { ApplicantRepoLive } from "../db/ApplicantRepo"
 import { IntakeHandlersLive } from "../http/handlers"
 import { IntakeServiceLive } from "../services/IntakeService"
+import { DatabaseLive } from "./DatabaseService"
 import { ReferenceIdServiceLive } from "./ReferenceIdService"
 import { TelemetryLive } from "./TelemetryLive"
 
@@ -24,5 +26,7 @@ const ServerLive = HttpRouter.serve(AppLive)
 export const AppDevLayer = ServerLive.pipe(
   Layer.provide(IntakeServiceLive),
   Layer.provide(ReferenceIdServiceLive),
+  Layer.provide(ApplicantRepoLive),
+  Layer.provide(DatabaseLive),
   Layer.provide(TelemetryLive),
 )

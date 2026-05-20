@@ -14,18 +14,24 @@
 import { expect, layer } from "@effect/vitest"
 import { IntakePayload } from "@effect-redacted/shared/http/payloads"
 import { Effect, Layer, Redacted, Schema } from "effect"
+import { ApplicantRepoTest } from "../../src/db/ApplicantRepo"
 import { ReferenceIdServiceLive } from "../../src/infra/ReferenceIdService"
 import { IntakeService, IntakeServiceLive } from "../../src/services/IntakeService"
 
-const TestLive = IntakeServiceLive.pipe(Layer.provide(ReferenceIdServiceLive))
+const TestLive = IntakeServiceLive.pipe(
+  Layer.provide(ReferenceIdServiceLive),
+  Layer.provide(ApplicantRepoTest),
+)
 
-// `it.effect.prop` in @effect/vitest@4.0.0-beta.66 has a bug: passing a
-// Schema via the record form (`{ input: IntakePayload }`) is not converted
-// into an arbitrary — the wrapper drops the schema and the test sees the
-// schema object as the input. Symptom: input.email is undefined inside the
-// generator. Convert manually until the upstream issue is fixed.
+// `it.effect.prop` record form (`{ input: Schema }`) silently drops the
+// schema-to-arbitrary conversion in @effect/vitest. Verified still
+// present at 4.0.0-beta.69 — see
+// `~/.claude/effect-smol/packages/vitest/src/internal/internal.ts:113-117`:
+// the schema-conversion branch sets result[key], then an unconditional
+// `result[key] = arb` overwrites the conversion. Missing an `else`.
 //
-// TODO: remove this workaround when @effect/vitest > 4.0.0-beta.66
+// TODO: remove this workaround when upstream lands an `else` between the
+// Schema.isSchema(arb) branch and the final assignment.
 const inputArb = Schema.toArbitrary(IntakePayload)
 
 layer(TestLive)("IntakeService", (it) => {
