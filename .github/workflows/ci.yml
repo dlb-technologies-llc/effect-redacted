@@ -40,3 +40,6 @@ jobs:
 
       - name: Test (backend)
         run: bun --filter @effect-redacted/backend test
+
+      - name: Test (backend integration)
+        run: bun --filter @effect-redacted/backend test:integration
