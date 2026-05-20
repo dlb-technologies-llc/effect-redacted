@@ -68,23 +68,3 @@ export const ApplicantRepoLive = Layer.effect(
     })
   }),
 )
-
-// Test layer — in-memory map. Generates an id via crypto.randomUUID()
-// and decodes through ApplicantId so the value is brand-valid without
-// an `as` cast. No Redacted.value call site — tests that need the
-// audit-boundary behavior specifically should use ApplicantRepoLive +
-// FreshDbLayer.
-export const ApplicantRepoTest = Layer.effect(
-  ApplicantRepo,
-  Effect.gen(function* () {
-    const rows = new Map<ApplicantId, ApplicantInsert>()
-    return ApplicantRepo.of({
-      insert: (input) =>
-        Effect.gen(function* () {
-          const id = yield* Schema.decodeUnknownEffect(ApplicantId)(crypto.randomUUID())
-          rows.set(id, input)
-          return id
-        }),
-    })
-  }),
-)

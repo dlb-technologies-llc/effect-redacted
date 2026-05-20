@@ -15,6 +15,7 @@
     "@effect-redacted/shared": "workspace:*",
     "@effect/opentelemetry": "^4.0.0-beta.69",
     "@effect/platform-bun": "^4.0.0-beta.69",
+    "@effect/platform-node": "^4.0.0-beta.69",
     "@effect/sql-pg": "^4.0.0-beta.69",
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/api-logs": "^0.203.0",
@@ -27,7 +28,6 @@
     "effect": "^4.0.0-beta.69"
   },
   "devDependencies": {
-    "@effect/platform-node": "^4.0.0-beta.69",
     "@effect/vitest": "^4.0.0-beta.69",
     "@testcontainers/postgresql": "^12.0.0",
     "@types/bun": "^1.3.0",

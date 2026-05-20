@@ -39,6 +39,14 @@ export const IntakeServiceLive = Layer.effect(
         // SQL/schema failures become defects: this is a server fault,
         // not a typed business error. The handler/endpoint contract
         // doesn't need to know about it.
+        //
+        // ⚠️ TRAP: if a future migration adds a UNIQUE constraint (e.g. on
+        // `email`), a duplicate-insert raises a SqlError carrying Postgres
+        // code `23505`. With this `orDie`, that surfaces as a 500 instead
+        // of a typed 4xx. When a constraint lands, replace this with a
+        // `catchTag("SqlError")` that pattern-matches on the code and
+        // routes constraint violations to an IntakeValidationError /
+        // IntakeProcessingError.
         yield* repo
           .insert({
             firstName: payload.firstName,

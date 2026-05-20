@@ -1,19 +1,25 @@
 import { PgClient } from "@effect/sql-pg"
-import { Redacted, String as Str } from "effect"
+import { Config, Effect, Layer, String as Str } from "effect"
 
-const url = process.env.DATABASE_URL
-if (!url) {
-  throw new Error("DATABASE_URL must be set to start the backend")
-}
-
-export const DatabaseLive = PgClient.layer({
-  url: Redacted.make(url),
-  // Snake↔camel transform: when a Schema field is `firstName`, queries
-  // emitted from Model-driven helpers (and SELECT result keys returned
-  // by the driver) round-trip between `first_name` (column) and
-  // `firstName` (TS). Our raw SQL in ApplicantRepo uses snake_case
-  // column names directly, so the transform only affects RESULT
-  // keys here.
-  transformResultNames: Str.snakeToCamel,
-  transformQueryNames: Str.camelToSnake,
-})
+/**
+ * Production PgClient layer. Reads `DATABASE_URL` via `Config.redacted`
+ * inside the Layer effect — failures surface as a typed `ConfigError`
+ * (caught by `BunRuntime.runMain`) rather than as a synchronous
+ * process throw at module import time. This matches the rest of the
+ * Effect architecture.
+ */
+export const DatabaseLive = Layer.unwrap(
+  Effect.gen(function* () {
+    const url = yield* Config.redacted("DATABASE_URL")
+    return PgClient.layer({
+      url,
+      // `transformResultNames: Str.snakeToCamel` is load-bearing — it's
+      // what makes `SELECT net_worth ...` come back as `rows[0].netWorth`.
+      // `transformQueryNames` is set for future Model-driven helpers; the
+      // current raw SQL in ApplicantRepo already spells columns in
+      // snake_case so the query transform is a no-op here.
+      transformResultNames: Str.snakeToCamel,
+      transformQueryNames: Str.camelToSnake,
+    })
+  }),
+)

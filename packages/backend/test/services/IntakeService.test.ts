@@ -14,13 +14,13 @@
 import { expect, layer } from "@effect/vitest"
 import { IntakePayload } from "@effect-redacted/shared/http/payloads"
 import { Effect, Layer, Redacted, Schema } from "effect"
-import { ApplicantRepoTest } from "../../src/db/ApplicantRepo"
 import { ReferenceIdServiceLive } from "../../src/infra/ReferenceIdService"
 import { IntakeService, IntakeServiceLive } from "../../src/services/IntakeService"
+import { ApplicantRepoStub } from "../setup/ApplicantRepoStub"
 
 const TestLive = IntakeServiceLive.pipe(
   Layer.provide(ReferenceIdServiceLive),
-  Layer.provide(ApplicantRepoTest),
+  Layer.provide(ApplicantRepoStub),
 )
 
 // `it.effect.prop` record form (`{ input: Schema }`) silently drops the

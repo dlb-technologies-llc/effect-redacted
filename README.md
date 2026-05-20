@@ -38,18 +38,29 @@ packages/
 
 ## Develop
 
+The backend persists submissions to Postgres. You need a running database with `DATABASE_URL` set in the environment — and docker, if you want to run the integration tests.
+
 ```sh
+# 1. Start a local Postgres (or use any other; just set DATABASE_URL)
+docker run --rm -d --name dev-pg -p 5432:5432 -e POSTGRES_PASSWORD=postgres postgres:16-alpine
+
+# 2. Install + run
 bun install
-bun run dev:backend    # http://localhost:3001
-bun run dev:frontend   # http://localhost:4321
+export DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres
+bun run dev:backend     # http://localhost:3001 — migrations auto-run on boot
+bun run dev:frontend    # http://localhost:4321
 
 # Lint / format
 bun run lint
 bun run format
 
-# Backend tests (property tests + encode-failure assertions)
-bun --filter @effect-redacted/backend test
+# Tests
+bun --filter @effect-redacted/backend test:unit          # no docker required
+bun --filter @effect-redacted/backend test:integration   # spins testcontainer (needs docker)
+bun --filter @effect-redacted/backend test               # runs both
 ```
+
+`DATABASE_URL` is consumed via `Config.redacted("DATABASE_URL")`; if unset, the backend fails to start with a `ConfigError`. The migration in `src/migrations/` runs on every layer build, so a fresh Postgres comes up to schema automatically.
 
 ## Smoke the endpoints
 

@@ -38,8 +38,8 @@ jobs:
       - name: Typecheck (all workspaces)
         run: bun --filter '*' typecheck
 
-      - name: Test (backend)
-        run: bun --filter @effect-redacted/backend test
+      - name: Test (backend unit)
+        run: bun --filter @effect-redacted/backend test:unit
 
       - name: Test (backend integration)
         run: bun --filter @effect-redacted/backend test:integration

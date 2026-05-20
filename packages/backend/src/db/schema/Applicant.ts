@@ -1,10 +1,3 @@
-import {
-  Email,
-  FirstName,
-  LastName,
-  NetWorth,
-  Phone,
-} from "@effect-redacted/shared/domain/Applicant"
 import { Schema } from "effect"
 
 const ApplicantIdBase = Schema.String.pipe(
@@ -12,13 +5,3 @@ const ApplicantIdBase = Schema.String.pipe(
 )
 export const ApplicantId = ApplicantIdBase.pipe(Schema.brand("ApplicantId"))
 export type ApplicantId = typeof ApplicantId.Type
-
-export class Applicant extends Schema.Class<Applicant>("Applicant")({
-  id: ApplicantId,
-  firstName: FirstName,
-  lastName: LastName,
-  email: Email,
-  phone: Phone,
-  netWorth: NetWorth,
-  createdAt: Schema.DateTimeUtcFromDate,
-}) {}

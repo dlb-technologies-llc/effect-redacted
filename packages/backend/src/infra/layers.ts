@@ -1,3 +1,6 @@
+import * as os from "node:os"
+import { NodeServices } from "@effect/platform-node"
+import { PgMigrator } from "@effect/sql-pg"
 import { AppApi } from "@effect-redacted/shared/http/api"
 import { Layer } from "effect"
 import { HttpRouter } from "effect/unstable/http"
@@ -6,6 +9,7 @@ import { ApplicantRepoLive } from "../db/ApplicantRepo"
 import { IntakeHandlersLive } from "../http/handlers"
 import { IntakeServiceLive } from "../services/IntakeService"
 import { DatabaseLive } from "./DatabaseService"
+import { migrationsDir } from "./migrationsDir"
 import { ReferenceIdServiceLive } from "./ReferenceIdService"
 import { TelemetryLive } from "./TelemetryLive"
 
@@ -23,10 +27,20 @@ const AppLive = HttpApiBuilder.layer(AppApi).pipe(
 
 const ServerLive = HttpRouter.serve(AppLive)
 
-export const AppDevLayer = ServerLive.pipe(
+// Runs the migrator on layer build so a fresh `DATABASE_URL` is brought
+// up to schema before the server accepts requests. Layer.effectDiscard
+// turns the side-effecting `PgMigrator.run` into a Layer that produces
+// nothing — its purpose is the side effect.
+const MigrationsLive = PgMigrator.layer({
+  schemaDirectory: `${os.tmpdir()}/effect-redacted-schema`,
+  loader: PgMigrator.fromFileSystem(migrationsDir),
+})
+
+export const AppDevLayer = Layer.mergeAll(ServerLive, MigrationsLive).pipe(
   Layer.provide(IntakeServiceLive),
   Layer.provide(ReferenceIdServiceLive),
   Layer.provide(ApplicantRepoLive),
   Layer.provide(DatabaseLive),
+  Layer.provide(NodeServices.layer),
   Layer.provide(TelemetryLive),
 )
